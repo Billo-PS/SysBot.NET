@@ -34,6 +34,7 @@ namespace SysBot.Pokemon
         public const uint WildPokemonOffset = 0x8FEA3648;
         public const uint RaidPokemonOffset = 0x886A95B8;
         public const uint LegendaryPokemonOffset = 0x886BC348;
+        public const uint HorseOffset = 0x450CAE28;
 
         // Link Trade Offsets
         public const uint LinkTradePartnerPokemonOffset = 0xAF286078;
