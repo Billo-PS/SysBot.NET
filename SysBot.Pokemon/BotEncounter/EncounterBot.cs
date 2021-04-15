@@ -45,6 +45,7 @@ namespace SysBot.Pokemon
                 EncounterMode.Eternatus => DoEternatusEncounter(token),
                 EncounterMode.Gift => DoGiftEncounter(token),
                 EncounterMode.LegendaryDogs => DoDogEncounter(token),
+                EncounterMode.Horse => DoHorseEncounter(token),
                 EncounterMode.Camp => DoCampEncounter(token),
                 EncounterMode.Regi => DoRegiEncounter(token),
                 EncounterMode.Regigigas => DoRegigigasEncounter(token),
