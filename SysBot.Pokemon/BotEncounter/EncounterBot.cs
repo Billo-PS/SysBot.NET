@@ -43,7 +43,11 @@ namespace SysBot.Pokemon
                 EncounterMode.VerticalLine => WalkInLine(token),
                 EncounterMode.HorizontalLine => WalkInLine(token),
                 EncounterMode.Eternatus => DoEternatusEncounter(token),
+                EncounterMode.Gift => DoGiftEncounter(token),
                 EncounterMode.LegendaryDogs => DoDogEncounter(token),
+                EncounterMode.Camp => DoCampEncounter(token),
+                EncounterMode.Regi => DoRegiEncounter(token),
+                EncounterMode.Regigigas => DoRegigigasEncounter(token),
                 _ => WalkInLine(token),
             };
             await task.ConfigureAwait(false);
@@ -107,6 +111,25 @@ namespace SysBot.Pokemon
             }
         }
 
+        private async Task DoGiftEncounter(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested && Config.NextRoutineType == PokeRoutineType.EncounterBot)
+            {
+               PK8? pk = null;
+               while (pk == null)
+               {
+                    await Click(A, 0_300, token).ConfigureAwait(false);
+                    pk = await ReadUntilPresent(BoxStartOffset, 0_200, 0_200, token).ConfigureAwait(false);
+               }
+                    if (await HandleEncounter(pk, true, token).ConfigureAwait(false))
+                        return;
+               
+                Connection.Log("Resetting Gift by restarting the game");
+                await CloseGame(Hub.Config, token).ConfigureAwait(false);
+                await StartGame(Hub.Config, token).ConfigureAwait(false);
+            }
+        }
+
         private async Task DoDogEncounter(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
@@ -147,6 +170,139 @@ namespace SysBot.Pokemon
 
                 // Extra delay to be sure we're fully out of the battle.
                 await Task.Delay(0_250, token).ConfigureAwait(false);
+            }
+        }
+
+        private async Task DoHorseEncounter(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                Log("Initiating Calyrex battle");
+
+                // Starts battle with Calyrex
+                await Click(A, 0_100, token).ConfigureAwait(false);
+                await SetStick(LEFT, 0, 30000, 1_000, token).ConfigureAwait(false);
+
+                while (!await IsInBattle(token).ConfigureAwait(false))
+                    await Click(A, 0_300, token).ConfigureAwait(false);
+
+                // Get rid of any stick stuff left over.
+                await ResetStick(token).ConfigureAwait(false);
+
+                // Wait for the entire cutscene.
+                await Task.Delay(15_000, token).ConfigureAwait(false);
+
+                // Offsets are flickery so make sure we see it 3 times.
+                for (int i = 0; i < 3; i++)
+                    await ReadUntilChanged(BattleMenuOffset, BattleMenuReady, 5_000, 0_100, true, token).ConfigureAwait(false);
+
+                await Task.Delay(5_000, token).ConfigureAwait(false);
+                await Click(X, 1_000, token).ConfigureAwait(false);
+                await Click(A, 1_000, token).ConfigureAwait(false);
+                await Click(A, 1_000, token).ConfigureAwait(false);
+
+                PK8? pk = null;
+                while (pk == null)
+                {
+                    await Click(A, 0_300, token).ConfigureAwait(false);
+                    pk = await ReadUntilPresent(HorseOffset, 0_200, 0_200, token).ConfigureAwait(false);
+                }
+                if (await HandleEncounter(pk, true, token).ConfigureAwait(false))
+                    return;
+
+                Connection.Log("Resetting Horse by restarting the game");
+                await CloseGame(Hub.Config, token).ConfigureAwait(false);
+                await StartGame(Hub.Config, token).ConfigureAwait(false);
+            }
+        }
+
+        private async Task DoCampEncounter(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                Log("Looking for an encounter...");
+
+                while (!await IsInBattle(token).ConfigureAwait(false)) ;
+
+                Log("Encounter started! Checking details...");
+                var pk = await ReadUntilPresent(WildPokemonOffset, 2_000, 0_200, token).ConfigureAwait(false);
+                if (pk == null)
+                {
+                    Log("Invalid data detected. Restarting loop.");
+                    continue;
+                }
+
+                // Get rid of any stick stuff left over so we can flee properly.
+                await ResetStick(token).ConfigureAwait(false);
+
+                // Wait for the entire cutscene.
+                await Task.Delay(2_000, token).ConfigureAwait(false);
+
+                // Offsets are flickery so make sure we see it 3 times.
+                for (int i = 0; i < 3; i++)
+                    await ReadUntilChanged(BattleMenuOffset, BattleMenuReady, 5_000, 0_100, true, token).ConfigureAwait(false);
+
+                if (await HandleEncounter(pk, true, token).ConfigureAwait(false))
+                    return;
+
+                Log("Running away...");
+                await FleeToOverworld(token).ConfigureAwait(false);
+
+                // Extra delay to be sure we're fully out of the battle.
+                await Task.Delay(0_200, token).ConfigureAwait(false);
+
+                await Click(A, 0_100, token).ConfigureAwait(false);
+                await Task.Delay(0_300, token).ConfigureAwait(false);
+
+                Log("Entering and exiting camp...");
+                while (!await IsOnOverworld(Hub.Config, token).ConfigureAwait(false))
+                    await Click(A, 0_300, token).ConfigureAwait(false);
+                await Click(X, 2_500, token).ConfigureAwait(false);
+                await Click(A, 9_000, token).ConfigureAwait(false);
+                await Click(B, 2_000, token).ConfigureAwait(false);
+                await Click(A, 2_000, token).ConfigureAwait(false);
+            }
+        }
+
+        private async Task DoRegigigasEncounter(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested && Config.NextRoutineType == PokeRoutineType.EncounterBot)
+            {
+                while (!await IsInBattle(token).ConfigureAwait(false))
+                    await Click(A, 0_300, token).ConfigureAwait(false);
+
+                Log("Encounter started! Checking details...");
+                var pk = await ReadUntilPresent(RaidPokemonOffset, 2_000, 0_200, token).ConfigureAwait(false);
+                if (pk != null)
+                {
+                    if (await HandleEncounter(pk, true, token).ConfigureAwait(false))
+                        return;
+                }
+
+                Connection.Log("Resetting Regigigas by restarting the game");
+                await CloseGame(Hub.Config, token).ConfigureAwait(false);
+                await StartGame(Hub.Config, token).ConfigureAwait(false);
+            }
+        }
+
+        private async Task DoRegiEncounter(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested && Config.NextRoutineType == PokeRoutineType.EncounterBot)
+            {
+                while (!await IsInBattle(token).ConfigureAwait(false))
+                    await Click(A, 0_300, token).ConfigureAwait(false);
+
+                Log("Encounter started! Checking details...");
+                var pk = await ReadUntilPresent(WildPokemonOffset, 2_000, 0_200, token).ConfigureAwait(false);
+                if (pk != null)
+                {
+                    if (await HandleEncounter(pk, true, token).ConfigureAwait(false))
+                        return;
+                }
+
+                Connection.Log("Resetting Regi by restarting the game");
+                await CloseGame(Hub.Config, token).ConfigureAwait(false);
+                await StartGame(Hub.Config, token).ConfigureAwait(false);
             }
         }
 
